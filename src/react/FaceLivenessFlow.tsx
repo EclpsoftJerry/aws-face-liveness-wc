@@ -49,6 +49,23 @@ export default function FaceLivenessFlow({
   //const [status, setStatus] = useState<"SUCCESS" | "FAILED" | null>(null);
   // evita doble llamada a fetchResult (React StrictMode / doble render)
   const fetchingRef = useRef(false);
+  const sendResultToParent = (result: LivenessResult) => {
+    window.parent.postMessage(
+      {
+        type: "AWS_LIVENESS_RESULT",
+        payload: result,
+      },
+      "*"
+    );
+  };
+  const sendCancelToParent = () => {
+    window.parent.postMessage(
+      {
+        type: "AWS_LIVENESS_CANCEL",
+      },
+      "*"
+    );
+  };
 
   const headers = {
     "Content-Type": "application/json",
@@ -112,6 +129,9 @@ export default function FaceLivenessFlow({
       setResult(result);
       setFinished(true);
 
+      // ENVIAR A LIT
+      sendResultToParent(result);
+
       if (result.approved === true) {
         onSuccess(result);
       } else {
@@ -139,63 +159,63 @@ export default function FaceLivenessFlow({
   /* =======================
      Resultado final UI
   ======================= */
-  if (finished && result) {
-    const isExpired = String(result.status || "").toUpperCase() === "EXPIRED";
-    const ok = result.approved === true;
-    return (
-      <div
-        style={{
-          padding: 24,
-          textAlign: "center",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          maxWidth: 420,
-          margin: "40px auto",
-          background: "#fff",
-        }}
-      >
-        {ok ? (
-          <>
-            <div style={{ fontSize: 48 }}>✅</div>
-            <h3>Prueba de vida aprobada</h3>
-            <p>
-              Confianza: {Number(result.confidence ?? 0).toFixed(2)}% <br />
-              Umbral: {Number(result.threshold ?? 0).toFixed(2)}%
-            </p>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 48 }}>❌</div>
-            <h3>No superó la prueba de vida</h3>
-            <p style={{ marginTop: 8 }}>
-              {isExpired
-                ? "La sesión expiró. Vuelva a intentarlo."
-                : "Intente nuevamente."}
-            </p>
-            <p style={{ fontSize: 12, opacity: 0.8 }}>
-              Confianza: {Number(result.confidence ?? 0).toFixed(2)}% | Umbral:{" "}
-              {Number(result.threshold ?? 0).toFixed(2)}%
-            </p>
-          </>
-        )}
+  // if (finished && result) {
+  //   const isExpired = String(result.status || "").toUpperCase() === "EXPIRED";
+  //   const ok = result.approved === true;
+  //   return (
+  //     <div
+  //       style={{
+  //         padding: 24,
+  //         textAlign: "center",
+  //         border: "1px solid #e5e7eb",
+  //         borderRadius: 12,
+  //         maxWidth: 420,
+  //         margin: "40px auto",
+  //         background: "#fff",
+  //       }}
+  //     >
+  //       {ok ? (
+  //         <>
+  //           <div style={{ fontSize: 48 }}>✅</div>
+  //           <h3>Prueba de vida aprobada</h3>
+  //           <p>
+  //             Confianza: {Number(result.confidence ?? 0).toFixed(2)}% <br />
+  //             Umbral: {Number(result.threshold ?? 0).toFixed(2)}%
+  //           </p>
+  //         </>
+  //       ) : (
+  //         <>
+  //           <div style={{ fontSize: 48 }}>❌</div>
+  //           <h3>No superó la prueba de vida</h3>
+  //           <p style={{ marginTop: 8 }}>
+  //             {isExpired
+  //               ? "La sesión expiró. Vuelva a intentarlo."
+  //               : "Intente nuevamente."}
+  //           </p>
+  //           <p style={{ fontSize: 12, opacity: 0.8 }}>
+  //             Confianza: {Number(result.confidence ?? 0).toFixed(2)}% | Umbral:{" "}
+  //             {Number(result.threshold ?? 0).toFixed(2)}%
+  //           </p>
+  //         </>
+  //       )}
 
-        <button
-          style={{
-            marginTop: 20,
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: "#2563eb",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-          onClick={onCancel}
-        >
-          Cerrar
-        </button>
-      </div>
-    );
-  }
+  //       <button
+  //         style={{
+  //           marginTop: 20,
+  //           padding: "8px 16px",
+  //           borderRadius: 8,
+  //           border: "none",
+  //           background: "#2563eb",
+  //           color: "#fff",
+  //           cursor: "pointer",
+  //         }}
+  //         onClick={onCancel}
+  //       >
+  //         Cerrar
+  //       </button>
+  //     </div>
+  //   );
+  // }
 
   /* =======================
      AWS Face Liveness UI
@@ -206,7 +226,11 @@ export default function FaceLivenessFlow({
         sessionId={sessionId}
         region={region}
         onAnalysisComplete={fetchResult}
-        onUserCancel={onCancel}
+        onUserCancel={() => {
+          // AVISAR A LIT QUE EL USUARIO CANCELÓ
+          sendCancelToParent();
+          onCancel();
+        }}
         onError={(error) => onError(error)}
       />
     </div>
