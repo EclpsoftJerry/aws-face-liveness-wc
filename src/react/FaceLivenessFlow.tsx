@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { configureAmplify } from "../amplify";
 
@@ -23,6 +23,7 @@ export type LivenessResult = {
 type Props = {
   baseUrl: string;
   authToken: string;
+  userId?: string | null;
   onSuccess: (result: LivenessResult) => void;
   onFailed: (result: LivenessResult) => void;
   onError: (error: any) => void;
@@ -36,6 +37,7 @@ type Props = {
 export default function FaceLivenessFlow({
   baseUrl,
   authToken,
+  userId,
   onSuccess,
   onFailed,
   onError,
@@ -44,8 +46,8 @@ export default function FaceLivenessFlow({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [region, setRegion] = useState("us-east-1");
   const [loading, setLoading] = useState(true);
-  const [finished, setFinished] = useState(false);
-  const [result, setResult] = useState<LivenessResult | null>(null);
+  //const [finished, setFinished] = useState(false);
+  //const [result, setResult] = useState<LivenessResult | null>(null);
   //const [status, setStatus] = useState<"SUCCESS" | "FAILED" | null>(null);
   // evita doble llamada a fetchResult (React StrictMode / doble render)
   const fetchingRef = useRef(false);
@@ -91,8 +93,7 @@ export default function FaceLivenessFlow({
 
         // Configurar Amplify con Cognito Identity Pool
         configureAmplify(
-          "us-east-1:f5fb88d1-0739-468d-a85a-c080fc36ec68", // Identity Pool ID
-          data.region || "us-east-1"
+          "us-east-1:f5fb88d1-0739-468d-a85a-c080fc36ec68" // Identity Pool ID          
         );
 
         setSessionId(data.sessionId);
@@ -115,8 +116,10 @@ export default function FaceLivenessFlow({
     fetchingRef.current = true;
 
     try {
+      const query = userId ? `?id=${encodeURIComponent(userId)}` : "";
       const res = await fetch(
-        `${baseUrl}/api/aws-liveness/result/${sessionId}`,
+        //`${baseUrl}/api/aws-liveness/result/${sessionId}`,
+        `${baseUrl}/api/aws-liveness/result/${sessionId}${query}`,
         { headers }
       );
 
@@ -126,8 +129,8 @@ export default function FaceLivenessFlow({
 
       const result: LivenessResult = await res.json();
 
-      setResult(result);
-      setFinished(true);
+      //setResult(result);
+      //setFinished(true);
 
       // ENVIAR A LIT
       sendResultToParent(result);

@@ -5,6 +5,7 @@ import AwsLivenessIntro from "./react/AwsLivenessIntro";
 function App() {
   const [token, setToken] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL_DESA
   //console.log("api", API_BASE_URL);
 
@@ -31,6 +32,17 @@ function App() {
     })();
   }, []);
 
+  // leer cédula del query param UNA VEZ
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) {
+      console.log("[React] userId desde query param:", id);
+      setUserId(id);
+    } else {
+      console.log("[React] sin userId en query param");
+    }
+  }, []);
+
   if (!token) {
     return <div>Autenticando…</div>;
   }
@@ -45,6 +57,7 @@ function App() {
     <FaceLivenessFlow      
       baseUrl={API_BASE_URL}
       authToken={token}
+      userId={userId}
       onSuccess={(res) => console.log("SUCCESS", res)}
       onFailed={(res) => console.log("FAILED", res)}
       onError={(err) => console.error("ERROR", err)}
