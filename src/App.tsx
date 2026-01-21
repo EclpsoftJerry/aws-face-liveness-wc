@@ -6,7 +6,7 @@ function App() {
   const [token, setToken] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL_DESA
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   //console.log("api", API_BASE_URL);
 
   // LOGIN TEMPORAL (solo para pruebas)
