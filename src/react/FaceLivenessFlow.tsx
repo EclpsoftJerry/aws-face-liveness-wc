@@ -234,7 +234,42 @@ export default function FaceLivenessFlow({
           sendCancelToParent();
           onCancel();
         }}
-        onError={(error) => onError(error)}
+        //onError={(error) => onError(error)}
+        onError={(error:any) => {
+          console.error("AWS ERROR RAW", error);
+
+           const errorMessage =
+            typeof error?.error === "string"
+              ? error.error
+              : typeof error?.message === "string"
+              ? error.message
+              : JSON.stringify(error);
+            console.warn("[AWS ERROR MESSAGE]", errorMessage);
+              
+          // TIMEOUT
+          if (error?.state === "TIMEOUT") {
+            console.warn("[AWS_LIVENESS] TIMEOUT detectado");
+            window.parent.postMessage(
+              { type: "AWS_LIVENESS_TIMEOUT" },
+              "*"
+            );
+            return;
+          }          
+          // Sesión expirada (cuando el usuario no hace nada)
+          if (
+            errorMessage.toLowerCase().includes("liveness session has expired")
+          ) {
+            console.warn("[AWS_LIVENESS] SESSION EXPIRED");
+
+            window.parent.postMessage(
+              { type: "AWS_LIVENESS_EXPIRED" },
+              "*"
+            );
+            return;
+          }
+          // otros errores
+          onError(error);
+        }}
       />
     </div>
   );

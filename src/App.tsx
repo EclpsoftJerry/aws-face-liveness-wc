@@ -2,56 +2,76 @@ import { useEffect, useState } from "react";
 import FaceLivenessFlow from "./react/FaceLivenessFlow";
 import AwsLivenessIntro from "./react/AwsLivenessIntro";
 
+type InitPayload = { type: "INIT_LIVENESS"; id?: string; token?: string };
+
 function App() {
   const [token, setToken] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-  //console.log("api", API_BASE_URL);
+  // (1) ORIGIN permitido del padre (Lit). Ideal: variable de entorno.
+  const PARENT_ORIGIN = import.meta.env.VITE_PARENT_ORIGIN || "";
 
-  // LOGIN TEMPORAL (solo para pruebas)
+  // (2) Avisar al padre que React ya está listo (handshake)
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/authenticate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: "tester-antispoofing",
-            password: "tester-antispoofing",
-          }),
-        });
+    window.parent?.postMessage({ type: "WC_READY" }, "*");
+  }, []);
 
-        if (!res.ok) throw new Error("Error autenticando");
+  // (3) Escuchar INIT desde el padre
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      // Seguridad: validar origen si lo tienes definido
+      if (PARENT_ORIGIN && event.origin !== PARENT_ORIGIN) return;
 
-        const data = await res.json();
-        setToken(data.id_token);
-      } catch (err) {
-        console.error("LOGIN ERROR", err);
+      const data = event.data as InitPayload;
+      console.log("INIT recibido:", data);
+      console.log("token recibido", data.token);
+      console.log("cedula recibido", data.id);
+      if (data?.type !== "INIT_LIVENESS") return;
+
+      if (!data.token) {
+        setInitError("No se recibió token para iniciar la verificación.");
+        return;
       }
-    })();
-  }, []);
+      setToken(data.token);
+      setUserId(data.id ?? null);
+      setInitError(null);
+    };
 
-  // leer cédula del query param UNA VEZ
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [PARENT_ORIGIN]);
+
+  // (4) Timeout si nunca llega INIT
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("id");
-    if (id) {
-      console.log("[React] userId desde query param:", id);
-      setUserId(id);
-    } else {
-      console.log("[React] sin userId en query param");
-    }
-  }, []);
+    const t = setTimeout(() => {
+      if (!token) setInitError("No se pudo inicializar la verificación. Intenta nuevamente.");
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [token]);
 
-  if (!token) {
-    return <div>Autenticando…</div>;
+  // UI de error
+  if (initError) {
+    return (
+      <div style={{ padding: 16 }}>
+        <h3>No se pudo iniciar</h3>
+        <p>{initError}</p>
+      </div>
+    );
   }
 
-  // 1) Primero instrucciones
+  // Mientras esperamos INIT
+  if (!token) {
+    return <div>Conectando…</div>;
+  }
+
+  // 1) Intro
   if (showIntro) {
     return <AwsLivenessIntro onStart={() => setShowIntro(false)} />;
   }
-
+  
   // 2) Luego AWS Face Liveness
   return (
     <FaceLivenessFlow      
@@ -60,8 +80,7 @@ function App() {
       userId={userId}
       onSuccess={(res) => console.log("SUCCESS", res)}
       onFailed={(res) => console.log("FAILED", res)}
-      onError={(err) => console.error("ERROR", err)}
-      //onCancel={() => console.log("CANCEL")}
+      onError={(err) => console.error("ERROR", err)}      
       onCancel={() => {console.log("CANCEL");
       setShowIntro(true);}}
     />
