@@ -46,6 +46,10 @@ export default function FaceLivenessFlow({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [region, setRegion] = useState("us-east-1");
   const [loading, setLoading] = useState(true);
+  const [showStartWarning, setShowStartWarning] = useState(false);
+  const hasUserInteractedRef = useRef(false);
+  const warnTimerRef = useRef<number | null>(null);
+  //const expireTimerRef = useRef<number | null>(null);
   //const [finished, setFinished] = useState(false);
   //const [result, setResult] = useState<LivenessResult | null>(null);
   //const [status, setStatus] = useState<"SUCCESS" | "FAILED" | null>(null);
@@ -105,6 +109,36 @@ export default function FaceLivenessFlow({
       }
     })();
   }, [baseUrl, authToken]);
+
+  /* ========================================
+   Watchdog: si no presiona Start video check
+  ========================================= */
+  useEffect(() => {
+    // se activa cuando ya existe sesión y la UI de AWS está visible
+    if (loading || !sessionId) return;
+
+    // reset
+    hasUserInteractedRef.current = false;
+    setShowStartWarning(false);
+
+    // 9s: mostrar aviso
+    warnTimerRef.current = window.setTimeout(() => {
+      if (!hasUserInteractedRef.current) {
+        setShowStartWarning(true);
+      }
+    }, 9000);
+    // 30s: cortar flujo para evitar que AWS expire por inacción
+    // expireTimerRef.current = window.setTimeout(() => {
+    //   if (!hasUserInteractedRef.current) {
+    //     window.parent.postMessage({ type: "AWS_LIVENESS_EXPIRED" }, "*");
+    //     onCancel(); // regresa al Intro (según tu App.tsx)
+    //   }
+    // }, 30000);
+    return () => {
+      if (warnTimerRef.current) window.clearTimeout(warnTimerRef.current);
+      //if (expireTimerRef.current) window.clearTimeout(expireTimerRef.current);
+    };
+  }, [loading, sessionId, onCancel]);
 
   /* =======================
     Consultar resultado
@@ -224,7 +258,32 @@ export default function FaceLivenessFlow({
      AWS Face Liveness UI
   ======================= */
   return (
-    <div style={{ width: "100%", maxWidth: 420, margin: "0 auto" }}>
+    <div style={{ width: "100%", maxWidth: 420, margin: "0 auto", position: "relative" }}
+    onClickCapture={() => {
+      // cualquier click dentro (incluye el botón Start video check)
+      hasUserInteractedRef.current = true;
+      setShowStartWarning(false);
+    }}>
+      {showStartWarning && (
+      <div
+        style={{
+          position: "absolute",
+          top: 13,
+          left: 10,
+          right: 10,
+          zIndex: 9999,
+          background: "#fff3cd",
+          border: "1px solid #ffeeba",
+          borderRadius: 10,
+          padding: 13,
+          fontSize: 14,
+          color: "#856404",
+          textAlign: "center",
+        }}
+      >
+        ⚠️ Para iniciar la verificación presiona <b>Start video check</b>. Si no lo haces, la sesión puede expirar.
+      </div>
+    )}
       <FaceLivenessDetector
         sessionId={sessionId}
         region={region}

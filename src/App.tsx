@@ -26,9 +26,9 @@ function App() {
       if (PARENT_ORIGIN && event.origin !== PARENT_ORIGIN) return;
 
       const data = event.data as InitPayload;
-      console.log("INIT recibido:", data);
-      console.log("token recibido", data.token);
-      console.log("cedula recibido", data.id);
+      //console.log("INIT recibido:", data);
+      //console.log("token recibido", data.token);
+      //console.log("cedula recibido", data.id);
       if (data?.type !== "INIT_LIVENESS") return;
 
       if (!data.token) {
