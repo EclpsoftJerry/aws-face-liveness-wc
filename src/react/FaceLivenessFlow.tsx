@@ -50,6 +50,9 @@ export default function FaceLivenessFlow({
   const hasUserInteractedRef = useRef(false);
   const warnTimerRef = useRef<number | null>(null);
   const detectorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [challengeStarted, setChallengeStarted] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(30);
+  const countdownRef = useRef<number | null>(null);
   //const expireTimerRef = useRef<number | null>(null);
   //const [finished, setFinished] = useState(false);
   //const [result, setResult] = useState<LivenessResult | null>(null);
@@ -158,6 +161,8 @@ export default function FaceLivenessFlow({
           btn.onclick = () => {
             hasUserInteractedRef.current = true;
             setShowStartWarning(false);
+            setChallengeStarted(true);
+            setSecondsLeft(31);
           };
         }
       });
@@ -172,6 +177,37 @@ export default function FaceLivenessFlow({
 
     return () => observer.disconnect();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!challengeStarted) return;
+
+    countdownRef.current = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (countdownRef.current) {
+            window.clearInterval(countdownRef.current);
+          }
+
+          // cortar flujo
+          window.parent.postMessage(
+            { type: "AWS_LIVENESS_TIMEOUT" },
+            "*"
+          );
+
+          onCancel();
+          return 0;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) {
+        window.clearInterval(countdownRef.current);
+      }
+    };
+  }, [challengeStarted, onCancel]);
 
   useEffect(() => {
     const root = detectorContainerRef.current;
@@ -240,7 +276,10 @@ export default function FaceLivenessFlow({
 
       //setResult(result);
       //setFinished(true);
-
+      setChallengeStarted(false);
+      if (countdownRef.current) {
+        window.clearInterval(countdownRef.current);
+      }
       // ENVIAR A LIT
       sendResultToParent(result);
 
@@ -293,12 +332,50 @@ export default function FaceLivenessFlow({
         ⚠️ Presiona <b>Iniciar verificación</b> para comenzar la prueba. Si no lo haces, la sesión puede expirar.
       </div>
     )}
+    {/* ⏳ Contador visual */}
+    {challengeStarted && (
+      <div
+        style={{
+          position: "absolute",
+          top: 13,
+          left: 10,
+          right: 10,
+          zIndex: 9998,
+          display: "flex",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            // background: "#fff3cd",
+            // border: "1px solid #ffeeba",
+            background: secondsLeft <= 10 ? "#f8d7da" : "#fff3cd",
+            border: secondsLeft <= 10
+              ? "2px solid #dc3545"
+              : "1px solid #ffeeba",
+            borderRadius: 12,
+            padding: "12px 16px",
+            fontSize: 16,
+            // color: "#856404",
+            color: secondsLeft <= 10 ? "#dc3545" : "#856404",
+            fontWeight:700,
+            textAlign: "center",
+            minWidth: 300,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          }}
+        >          
+          ⏳ Tienes <b>{secondsLeft}</b> segundos para completar la verificación          
+        </div>
+      </div>
+    )}
     <div ref={detectorContainerRef}>
       <FaceLivenessDetector
         sessionId={sessionId}
         region={region}
         onAnalysisComplete={fetchResult}
         onUserCancel={() => {
+          setChallengeStarted(false);          
           // AVISAR A LIT QUE EL USUARIO CANCELÓ
           sendCancelToParent();
           onCancel();
@@ -318,6 +395,10 @@ export default function FaceLivenessFlow({
           // TIMEOUT
           if (error?.state === "TIMEOUT") {
             console.warn("[AWS_LIVENESS] TIMEOUT detectado");
+            setChallengeStarted(false);
+            if (countdownRef.current) {
+              window.clearInterval(countdownRef.current);
+            }            
             window.parent.postMessage(
               { type: "AWS_LIVENESS_TIMEOUT" },
               "*"
@@ -329,7 +410,10 @@ export default function FaceLivenessFlow({
             errorMessage.toLowerCase().includes("liveness session has expired")
           ) {
             console.warn("[AWS_LIVENESS] SESSION EXPIRED");
-
+            setChallengeStarted(false);
+            if (countdownRef.current) {
+              window.clearInterval(countdownRef.current);
+            }
             window.parent.postMessage(
               { type: "AWS_LIVENESS_EXPIRED" },
               "*"
