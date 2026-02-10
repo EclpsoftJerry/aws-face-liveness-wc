@@ -145,6 +145,38 @@ export default function FaceLivenessFlow({
     const root = detectorContainerRef.current;
     if (!root) return;
 
+    const attachStartListener = () => {
+      const buttons = root.querySelectorAll("button");
+
+      buttons.forEach((btn) => {
+        const text = btn.innerText?.toLowerCase() || "";
+
+        if (
+          text.includes("iniciar verificación") ||
+          text.includes("start video check")
+        ) {
+          btn.onclick = () => {
+            hasUserInteractedRef.current = true;
+            setShowStartWarning(false);
+          };
+        }
+      });
+    };
+
+    // esperar que AWS pinte la UI
+    const observer = new MutationObserver(() => {
+      attachStartListener();
+    });
+
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [sessionId]);
+
+  useEffect(() => {
+    const root = detectorContainerRef.current;
+    if (!root) return;
+
     // Diccionario robusto con RegExp (case insensitive)
     const dictionary: Array<{ pattern: RegExp; replace: string }> = [
       { pattern: /move closer/i, replace: "Acércate más" },
@@ -240,12 +272,7 @@ export default function FaceLivenessFlow({
      AWS Face Liveness UI
   ======================= */
   return (
-    <div style={{ width: "100%", maxWidth: 420, margin: "0 auto", position: "relative" }}
-    onClickCapture={() => {
-      // cualquier click dentro (incluye el botón Start video check)
-      hasUserInteractedRef.current = true;
-      setShowStartWarning(false);
-    }}>
+    <div style={{ width: "100%", maxWidth: 420, margin: "0 auto", position: "relative" }}>
       {showStartWarning && (
       <div
         style={{
