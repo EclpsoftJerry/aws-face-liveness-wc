@@ -49,6 +49,7 @@ export default function FaceLivenessFlow({
   const [showStartWarning, setShowStartWarning] = useState(false);
   const hasUserInteractedRef = useRef(false);
   const warnTimerRef = useRef<number | null>(null);
+  const detectorContainerRef = useRef<HTMLDivElement | null>(null);
   //const expireTimerRef = useRef<number | null>(null);
   //const [finished, setFinished] = useState(false);
   //const [result, setResult] = useState<LivenessResult | null>(null);
@@ -140,6 +141,48 @@ export default function FaceLivenessFlow({
     };
   }, [loading, sessionId, onCancel]);
 
+  useEffect(() => {
+    const root = detectorContainerRef.current;
+    if (!root) return;
+
+    // Diccionario robusto con RegExp (case insensitive)
+    const dictionary: Array<{ pattern: RegExp; replace: string }> = [
+      { pattern: /move closer/i, replace: "Acércate más" },
+      { pattern: /move back/i, replace: "Aléjate un poco" },
+      { pattern: /hold still/i, replace: "Quédate quieto" },
+      { pattern: /center your face/i, replace: "Centra tu rostro" },
+      { pattern: /start video check/i, replace: "Iniciar verificación" },
+      { pattern: /photosensitivity warning/i, replace: "Advertencia de fotosensibilidad" },
+      {pattern: /this check flashes different colors.*photosensitive\./i,
+       replace:"Esta verificación muestra luces intermitentes. Ten precaución."},
+    ];    
+
+    const translate = () => {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+
+      while ((node = walker.nextNode())) {
+        const textNode = node as Text;
+        const original = textNode.nodeValue ?? "";
+
+        for (const {pattern, replace } of dictionary) {
+          if (pattern.test(original) && original !== replace) {
+            textNode.nodeValue = original.replace(pattern, replace);
+          }
+        }
+      }
+    };
+
+    // 1) traducir una vez al inicio
+    translate();
+
+    // 2) observar cambios (AWS va pintando textos dinámicamente)
+    const observer = new MutationObserver(() => translate());
+    observer.observe(root, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
+  }, [sessionId]);
+
   /* =======================
     Consultar resultado
   ======================= */
@@ -194,67 +237,6 @@ export default function FaceLivenessFlow({
   }
 
   /* =======================
-     Resultado final UI
-  ======================= */
-  // if (finished && result) {
-  //   const isExpired = String(result.status || "").toUpperCase() === "EXPIRED";
-  //   const ok = result.approved === true;
-  //   return (
-  //     <div
-  //       style={{
-  //         padding: 24,
-  //         textAlign: "center",
-  //         border: "1px solid #e5e7eb",
-  //         borderRadius: 12,
-  //         maxWidth: 420,
-  //         margin: "40px auto",
-  //         background: "#fff",
-  //       }}
-  //     >
-  //       {ok ? (
-  //         <>
-  //           <div style={{ fontSize: 48 }}>✅</div>
-  //           <h3>Prueba de vida aprobada</h3>
-  //           <p>
-  //             Confianza: {Number(result.confidence ?? 0).toFixed(2)}% <br />
-  //             Umbral: {Number(result.threshold ?? 0).toFixed(2)}%
-  //           </p>
-  //         </>
-  //       ) : (
-  //         <>
-  //           <div style={{ fontSize: 48 }}>❌</div>
-  //           <h3>No superó la prueba de vida</h3>
-  //           <p style={{ marginTop: 8 }}>
-  //             {isExpired
-  //               ? "La sesión expiró. Vuelva a intentarlo."
-  //               : "Intente nuevamente."}
-  //           </p>
-  //           <p style={{ fontSize: 12, opacity: 0.8 }}>
-  //             Confianza: {Number(result.confidence ?? 0).toFixed(2)}% | Umbral:{" "}
-  //             {Number(result.threshold ?? 0).toFixed(2)}%
-  //           </p>
-  //         </>
-  //       )}
-
-  //       <button
-  //         style={{
-  //           marginTop: 20,
-  //           padding: "8px 16px",
-  //           borderRadius: 8,
-  //           border: "none",
-  //           background: "#2563eb",
-  //           color: "#fff",
-  //           cursor: "pointer",
-  //         }}
-  //         onClick={onCancel}
-  //       >
-  //         Cerrar
-  //       </button>
-  //     </div>
-  //   );
-  // }
-
-  /* =======================
      AWS Face Liveness UI
   ======================= */
   return (
@@ -281,9 +263,10 @@ export default function FaceLivenessFlow({
           textAlign: "center",
         }}
       >
-        ⚠️ Para iniciar la verificación presiona <b>Start video check</b>. Si no lo haces, la sesión puede expirar.
+        ⚠️ Presiona <b>Iniciar verificación</b> para comenzar la prueba. Si no lo haces, la sesión puede expirar.
       </div>
     )}
+    <div ref={detectorContainerRef}>
       <FaceLivenessDetector
         sessionId={sessionId}
         region={region}
@@ -330,6 +313,7 @@ export default function FaceLivenessFlow({
           onError(error);
         }}
       />
+    </div>
     </div>
   );
 }

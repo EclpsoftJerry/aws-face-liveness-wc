@@ -9,35 +9,27 @@ export default function AwsLivenessIntro({ onStart }: Props) {
     <div
       style={{
         fontFamily: "Montserrat, sans-serif", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, background: "#fff",
-        maxWidth: 420, margin: "0 auto", lineHeight: 1.7
+        maxWidth: 420, margin: "0 auto", lineHeight: 1.8
       }}
     >
     {/* TÍTULO */}
     <h3 style={{ margin: "0 0 6px 0", fontSize: 17, fontWeight: 600, textAlign: "center" }}>
-      🧑‍💻 Verificación de vida
-    </h3>
-
-    {/* DESCRIPCIÓN */}
-    <p style={{ margin: "0 0 10px 0", fontSize: 15, color: "#000000ff" }}>
-      Se abrirá una verificación guiada con cámara
-      <br />
-      <span style={{ fontSize: 12, opacity: 0.8 }}>
-        (puede mostrarse en inglés)
-      </span>
-    </p>
+      🧑‍💻 Verificación de identidad
+    </h3>    
 
     {/* PASOS CLAVE */}
-    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 15 }}>
-      <li>▶️ Presiona <b>Start video check</b></li>
-      <li>↔️ Acércate hasta completar la barra</li>
-      <li>🧍‍♂️ Mantente quieto cuando veas el mensaje <b>Hold still</b></li>
+    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 15 }}>
+      <li>▶️ Pulsa <b>Comenzar verificación</b> para abrir la cámara</li>
+      <li>📷 Dentro de la cámara, presiona <b>Iniciar verificación</b></li>
+      <li>↔️ Acércate hasta que la barra avance</li>
+      <li>🧍‍♂️ Quédate quieto cuando se indique</li>
     </ul>
 
     {/* WARNING */}
     <div style={{
       background: "#fff4e5", border: "1px solid #ffd8a8", borderRadius: 8, padding: 10, fontSize: 12, color: "#8a5b00",
       marginTop: 10, marginBottom: 12, gap: 8, alignItems: "center"}}>
-      ⚠️ <strong>Advertencia:</strong> durante la verificación pueden aparecer luces o cambios de color en pantalla.
+      ⚠️ <strong>Advertencia:</strong> durante la verificación aparecerán luces y cambios de color en pantalla.
     </div>
 
     {/* BOTÓN */}
