@@ -219,6 +219,7 @@ export default function FaceLivenessFlow({
       { pattern: /move back/i, replace: "Aléjate un poco" },
       { pattern: /hold still/i, replace: "Quédate quieto" },
       { pattern: /center your face/i, replace: "Centra tu rostro" },
+      { pattern: /move face in front of camera/i, replace: "Coloca tu rostro frente a la cámara" },
       { pattern: /start video check/i, replace: "Iniciar verificación" },
       { pattern: /photosensitivity warning/i, replace: "Advertencia de fotosensibilidad" },
       {pattern: /this check flashes different colors.*photosensitive\./i,
@@ -418,6 +419,28 @@ export default function FaceLivenessFlow({
               { type: "AWS_LIVENESS_EXPIRED" },
               "*"
             );
+            return;
+          }
+          // ERROR DE RED / DNS
+          const msg = errorMessage.toLowerCase();
+          if (
+            msg.includes("NetworkError") ||
+            msg.includes("ERR_NAME_NOT_RESOLVED") ||
+            msg.includes("Failed to fetch")
+          ) {
+            console.warn("[AWS_LIVENESS] NETWORK ERROR detectado");
+
+            setChallengeStarted(false);
+
+            if (countdownRef.current) {
+              window.clearInterval(countdownRef.current);
+            }
+
+            window.parent.postMessage(
+              { type: "AWS_LIVENESS_NETWORK_ERROR" },
+              "*"
+            );
+
             return;
           }
           // otros errores
