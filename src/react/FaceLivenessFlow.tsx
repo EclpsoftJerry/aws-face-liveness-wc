@@ -88,27 +88,74 @@ export default function FaceLivenessFlow({
   useEffect(() => {
     (async () => {
       try {
+        const formData = new FormData();
+        if (userId) {
+          formData.append("id", userId);
+        }
+        console.log("ID enviado a /session:", userId);
         const res = await fetch(`${baseUrl}/api/aws-liveness/session`, {
           method: "POST",
-          headers,
+          body: formData,
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
         });
 
-        if (!res.ok) {
-          throw new Error(`Error creando sesión AWS: ${res.status}`);
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.warn("No JSON response from backend");
         }
+        //console.log("AWS SESSION STATUS:", res.status);
+        console.log("AWS SESSION BODY:", data);
+        /* ================================
+        BLOQUEO POR NEGOCIO
+        ================================ */
+        if (data?.result === false) {
 
-        const data: CreateSessionResponse = await res.json();
+          console.warn("[AWS] Bloqueado:", data.detail);
+          console.log("ENVIANDO EVENTO AWS_LIVENESS_ATTEMPTS_EXCEEDED AL PARENT");
+          window.parent.postMessage({
+            type: "AWS_LIVENESS_ATTEMPTS_EXCEEDED",
+            payload: data
+          }, "*");
 
+          return; // NO CREAR SESIÓN AWS
+        }
+        /* ================================
+        HTTP ERROR REAL
+        ================================ */
+        if (!res.ok) {
+          window.parent.postMessage({
+            type: "AWS_LIVENESS_HTTP_ERROR"
+          }, "*");
+
+          return;          
+        }
+        /* ================================
+        OK → CREAR SESIÓN
+        ================================ */        
+        const sessionData = data as CreateSessionResponse;
+        if (!sessionData?.sessionId) {
+          console.warn("AWS sin sessionId");
+          //window.parent.postMessage({
+          //  type: "AWS_LIVENESS_SESSION_ERROR"
+          //}, "*");
+          return;
+        }        
         // Configurar Amplify con Cognito Identity Pool
         configureAmplify(
           "us-east-1:f5fb88d1-0739-468d-a85a-c080fc36ec68" // Identity Pool ID          
         );
 
-        setSessionId(data.sessionId);
-        setRegion(data.region || "us-east-1");
+        setSessionId(sessionData.sessionId);
+        setRegion(sessionData.region || "us-east-1");
       } catch (err) {
+        console.error("Network Error creating AWS session:", err);
         onError(err);
       } finally {
+        console.log("AWS session attempt finished");
         setLoading(false);
       }
     })();
